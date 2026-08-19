@@ -1,0 +1,76 @@
+# Stage compartido — Security para apps Node + Dockerfile
+# Repo destino: siltium/ci-workflows (o el nombre que elijan).
+# Consumo: uses: OWNER/ci-workflows/.github/workflows/node-security.yml@v1
+
+name: Node Security
+
+on:
+  workflow_call:
+    inputs:
+      image-name:
+        description: Tag local de la imagen (ej. ticzar-pay-api)
+        required: true
+        type: string
+      dockerfile:
+        description: Path al Dockerfile
+        required: false
+        type: string
+        default: ./Dockerfile
+      context:
+        description: Docker build context
+        required: false
+        type: string
+        default: .
+      gitleaks-image:
+        description: Imagen Docker de Gitleaks (pin por tag)
+        required: false
+        type: string
+        default: zricethezav/gitleaks:v8.24.3
+
+jobs:
+  gitleaks:
+    name: Gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Scan for secrets (árbol actual)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/repo" \
+            ${{ inputs.gitleaks-image }} \
+            detect --source=/repo --no-git --verbose --redact
+
+  trivy:
+    name: Trivy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (local, solo para escanear)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          load: true
+          tags: ${{ inputs.image-name }}:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: CVE gate — Critical/High con fix disponible
+        # Pin por SHA (trivy-action v0.36.0)
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8
+        with:
+          image-ref: ${{ inputs.image-name }}:ci
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+          vuln-type: "os,library"

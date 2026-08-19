@@ -1,0 +1,16 @@
+# Ejemplo — API Nest sin Newman (ej. ticzar-tickets-api)
+
+name: CI QA
+
+on:
+  push:
+    branches:
+      - qa
+  workflow_dispatch:
+
+jobs:
+  security:
+    name: "Stage 1 · Security"
+    uses: siltium/ci-workflows/.github/workflows/node-security.yml@v1
+    with:
+      image-name: ticzar-tickets-api

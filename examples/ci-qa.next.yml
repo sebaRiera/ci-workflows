@@ -1,0 +1,23 @@
+# Ejemplo — Next.js (ej. ticzar-web / ticzar-*-admin)
+# Requiere .github/ci.env en el repo de la app (dummies de build).
+
+name: CI QA
+
+on:
+  push:
+    branches:
+      - qa
+  workflow_dispatch:
+
+jobs:
+  security:
+    name: "Stage 1 · Security"
+    uses: siltium/ci-workflows/.github/workflows/node-security.yml@v1
+    with:
+      image-name: ticzar-pay-admin
+
+  quality:
+    name: "Stage 2 · Quality"
+    uses: siltium/ci-workflows/.github/workflows/next-quality.yml@v1
+    with:
+      env-file: .github/ci.env

@@ -1,0 +1,83 @@
+# Stage compartido — Quality para Next.js
+# Repo destino: siltium/ci-workflows
+# Consumo: uses: OWNER/ci-workflows/.github/workflows/next-quality.yml@v1
+#
+# Env de build (NEXT_PUBLIC_*, NEXTAUTH_*, etc.):
+#   poné un archivo en el repo consumidor (ej. .github/ci.env) y pasalo
+#   con input env-file. Coolify inyecta las reales en deploy; acá solo
+#   hacen falta dummies para que `next build` compile en CI.
+
+name: Next Quality
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Versión de Node
+        required: false
+        type: string
+        default: "22"
+      install-command:
+        description: Comando de install
+        required: false
+        type: string
+        default: npm ci
+      build-command:
+        description: Comando de build
+        required: false
+        type: string
+        default: npm run build
+      env-file:
+        description: Path relativo a un archivo KEY=VAL cargado antes del build (opcional)
+        required: false
+        type: string
+        default: ""
+      run-lint:
+        description: Si true, corre `npm run lint` antes del build
+        required: false
+        type: boolean
+        default: false
+      run-typecheck:
+        description: Si true, corre `npm run typecheck` antes del build
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    name: Install · Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: ${{ inputs.install-command }}
+
+      - name: Lint
+        if: inputs.run-lint
+        run: npm run lint
+
+      - name: Typecheck
+        if: inputs.run-typecheck
+        run: npm run typecheck
+
+      - name: Build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: |
+          set -e
+          if [ -n "${{ inputs.env-file }}" ] && [ -f "${{ inputs.env-file }}" ]; then
+            echo "Cargando env desde ${{ inputs.env-file }}"
+            set -a
+            # shellcheck disable=SC1090
+            . "./${{ inputs.env-file }}"
+            set +a
+          fi
+          ${{ inputs.build-command }}

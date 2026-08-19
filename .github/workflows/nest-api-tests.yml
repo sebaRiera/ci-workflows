@@ -1,0 +1,73 @@
+# Stage compartido — API tests (Newman) para Nest / APIs
+# Repo destino: siltium/ci-workflows
+# Consumo: uses: OWNER/ci-workflows/.github/workflows/nest-api-tests.yml@v1
+#
+# folders: lista separada por comas o saltos de línea.
+#   vacío = corre la collection completa (sin --folder).
+
+name: Nest API Tests
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Versión de Node para Newman
+        required: false
+        type: string
+        default: "20"
+      collection-path:
+        description: Path a la collection Postman
+        required: true
+        type: string
+      environment-path:
+        description: Path al environment Postman
+        required: true
+        type: string
+      working-dir:
+        description: --working-dir de Newman
+        required: false
+        type: string
+        default: postman
+      folders:
+        description: Folders a correr (coma o newline). Vacío = collection completa.
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  newman:
+    name: Newman / Postman
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Install Newman
+        run: npm install -g newman
+
+      - name: Run Postman collection
+        env:
+          COLLECTION: ${{ inputs.collection-path }}
+          ENVIRONMENT: ${{ inputs.environment-path }}
+          WORKING_DIR: ${{ inputs.working-dir }}
+          FOLDERS: ${{ inputs.folders }}
+        run: |
+          set -e
+          ARGS=(run "$COLLECTION" -e "$ENVIRONMENT" --working-dir "$WORKING_DIR")
+          if [ -n "$FOLDERS" ]; then
+            # Soporta "a,b,c" o líneas
+            while IFS= read -r folder; do
+              folder="$(echo "$folder" | tr -d '\r' | xargs)"
+              [ -z "$folder" ] && continue
+              ARGS+=(--folder "$folder")
+            done <<EOF
+          $(echo "$FOLDERS" | tr ',' '\n')
+          EOF
+          fi
+          echo "newman ${ARGS[*]}"
+          newman "${ARGS[@]}"

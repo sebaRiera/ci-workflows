@@ -1,0 +1,29 @@
+# Ejemplo — API Nest (ej. ticzar-pay-api)
+# Copiar a: <app>/.github/workflows/ci-qa.yml
+# Ajustar OWNER/REPO y image-name / paths Postman.
+
+name: CI QA
+
+on:
+  push:
+    branches:
+      - qa
+  workflow_dispatch:
+
+jobs:
+  security:
+    name: "Stage 1 · Security"
+    uses: siltium/ci-workflows/.github/workflows/node-security.yml@v1
+    with:
+      image-name: ticzar-pay-api
+
+  api-tests:
+    name: "Stage 2 · API tests"
+    needs: [security]
+    uses: siltium/ci-workflows/.github/workflows/nest-api-tests.yml@v1
+    with:
+      collection-path: postman/collections/TICZAR_Pay_API.postman_collection.json
+      environment-path: postman/environments/TICZAR_PAY.postman_environment.json
+      working-dir: postman
+      folders: |
+        login,refresh,register,contacts,webhooks,movement-types,health,countries-read,provinces-read
